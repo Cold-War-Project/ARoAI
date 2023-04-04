@@ -1,15 +1,15 @@
 ﻿# --------------------
 # Synthetic oil plants
 # --------------------
-
-aroai_evaluate_building_synthetic_oil_plants = { # Paste building key in the name
-    aroai_evaluate_production_building = {
-        id = $id$ # Don't change, just copy
-        crucial = $crucial$ # Don't change, just copy
-        good = mg:oil # Good that we'll judge this building by, usually the one produced by it
-        weight = aroai_industry_weight_1 # How important is it to build this building for this resource
-        offset = 0 # Values over 0 mean higher than usual productivity will be required for this good in this building
-    }
+aroai_evaluate_building_synthetic_oil_plants = {
+	# Paste building key in the name
+	aroai_evaluate_production_building = {
+		id = $id$		# Don't change, just copy
+		crucial = $crucial$		# Don't change, just copy
+		good = mg:oil		# Good that we'll judge this building by, usually the one produced by it
+		weight = aroai_industry_weight_1		# How important is it to build this building for this resource
+		offset = 0		# Values over 0 mean higher than usual productivity will be required for this good in this building
+	}
 }
 
 # Notes:
@@ -60,74 +60,93 @@ aroai_evaluate_building_synthetic_oil_plants = { # Paste building key in the nam
 #         offset = 0
 #     }
 # }
-
 # -----------------------
 # Synthetic rubber plants
 # -----------------------
-
 aroai_evaluate_building_synthetic_rubber_plants = {
-    aroai_evaluate_production_building = {
-        id = $id$
-        crucial = $crucial$
-        good = mg:rubber
-        weight = aroai_industry_weight_2
-        offset = 0
-    }
+	aroai_evaluate_production_building = {
+		id = $id$
+		crucial = $crucial$
+		good = mg:rubber
+		weight = aroai_industry_weight_2
+		offset = 0
+	}
 }
 
 # -----------------
 # Special buildings
 # -----------------
-
 aroai_construct_special_buildings_1 = {
-    
-    # Eiffel Tower [which is a vanilla special building, it's here just as an example]
-    if = {
-        limit = {
-            has_technology_researched = steel_frame_buildings
-            s:STATE_ILE_DE_FRANCE = {
-                any_scope_state = {
-                    owner = root
-                }
-                NOT = {
-                    any_scope_state = {
-                        any_scope_building = {
-                            is_building_type = building_eiffel_tower
-                        }
-                    }
-                }
-            }
-        }
-        set_local_variable = {
-            name = aroai_started_building_construction
-            value = yes
-            days = aroai_days_to_keep_short_variables
-        }
-        s:STATE_ILE_DE_FRANCE = {
-            random_scope_state = {
-                limit = {
-                    owner = root
-                }
-                start_building_construction = building_eiffel_tower
-            }
-        }
-    }
+	# Eiffel Tower [which is a vanilla special building, it's here just as an example]
+	if = {
+		limit = {
+			has_technology_researched = steel_frame_buildings
+			s:STATE_ILE_DE_FRANCE = {
+				any_scope_state = {
+					owner = root
+				}
+				NOT = {
+					any_scope_state = {
+						any_scope_building = {
+							is_building_type = building_eiffel_tower
+						}
+					}
+				}
+			}
+		}
+		set_local_variable = {
+			name = aroai_started_building_construction
+			value = yes
+			days = aroai_days_to_keep_short_variables
+		}
+		s:STATE_ILE_DE_FRANCE = {
+			random_scope_state = {
+				limit = {
+					owner = root
+				}
+				start_building_construction = building_eiffel_tower
+			}
+		}
+	}
 }
 
 # -----------------------------------------------------------------------------------
 # Effects below were generated with a modding tool and should not be changed manually
 # -----------------------------------------------------------------------------------
-
 aroai_add_to_list_of_compatibility_patches_1 = {
-    add_to_global_variable_list = {
-        name = aroai_compatibility_patches
-        target = 1
-    }
+	add_to_global_variable_list = {
+		name = aroai_compatibility_patches
+		target = 1
+	}
 }
 
 aroai_perform_for_every_building_type_1 = {
-    aroai_perform_for_building_type = { effect = $effect$ key = building_synthetic_oil_plants id = 201
-    class = 4 counter = 12 order = 6 limit = 5 crucial = 11 workforce = 1 allocate = 2 branching = 1 scaling = 1 }
-    aroai_perform_for_building_type = { effect = $effect$ key = building_synthetic_rubber_plants id = 202
-    class = 4 counter = 11 order = 7 limit = 5 crucial = 11 workforce = 1 allocate = 2 branching = 1 scaling = 1 }
+	aroai_perform_for_building_type = {
+		effect = $effect$
+		key = building_synthetic_oil_plants
+		id = 201
+		class = 4
+		counter = 12
+		order = 6
+		limit = 5
+		crucial = 11
+		workforce = 1
+		allocate = 2
+		branching = 1
+		scaling = 1
+	}
+	aroai_perform_for_building_type = {
+		effect = $effect$
+		key = building_synthetic_rubber_plants
+		id = 202
+		class = 4
+		counter = 11
+		order = 7
+		limit = 5
+		crucial = 11
+		workforce = 1
+		allocate = 2
+		branching = 1
+		scaling = 1
+	}
 }

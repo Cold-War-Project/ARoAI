@@ -131,7 +131,7 @@ Order of buildings
 9) university, barracks, naval_base
 10) wheat_farm, rye_farm, rice_farm, maize_farm, millet_farm
 11) gold_mine, dye_plantation, opium_plantation, silk_plantation
-12) textile_mills, furniture_manufacturies, synthetics_plants
+12) textile_mills, furniture_manufactories, synthetics_plants
 13) fishing_wharf, banana_plantation, sugar_plantation
 14) tobacco_plantation, food_industry
 15) tea_plantation, coffee_plantation, arts_academy

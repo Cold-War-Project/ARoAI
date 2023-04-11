@@ -1,8 +1,13 @@
-import { readTextFile, writeTextFile, BaseDirectory } from "@tauri-apps/api/fs";
-import { resourceDir } from "@tauri-apps/api/path";
+import {
+  readTextFile,
+  writeTextFile,
+  BaseDirectory,
+  createDir,
+} from "@tauri-apps/api/fs";
+import { resourceDir, downloadDir } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/api/shell";
 import { invoke } from "@tauri-apps/api/tauri";
-import { index } from "d3";
+import { write } from "fs";
 
 let string = "";
 let part = "";
@@ -94,6 +99,7 @@ const parseBooleanOrNumber = (lineData: string) => {
 };
 
 const resourceDirPath = await resourceDir();
+const downloadDirPath = await downloadDir();
 const buildingFile = `${resourceDirPath}buildings.csv`;
 const data: string = await readTextFile(buildingFile, {
   dir: BaseDirectory.App,
@@ -155,72 +161,68 @@ const getBuildingClass = (index: number) => {
     Place result code below into an end of the aroai_static_data_effects.txt file
 */
 
-string += `
-# -----------------------------------------------------------------------------------
-# Effects below were generated with a modding tool and should not be changed manually
-# -----------------------------------------------------------------------------------\n`;
+const createAndWriteOutput = async () => {
+  await createDir(`${downloadDirPath}output/`, { recursive: true });
+  console.log(`🤔 Writing output to ${downloadDirPath}output/`);
+  console.log(`✍️ writing aroai_static_data_buildings.txt`);
+  writeTextFile(
+    `${downloadDirPath}output/aroai_static_data_effects.txt`,
+    aroaiConstructSpecialBuildingsCompatibility(numCompatibilityPatches)
+  );
+};
 
-string += `
-aroai_construct_special_buildings_compatibility = {
-    every_in_global_list = {
-        variable = aroai_compatibility_patches
-        switch = {
-            trigger = this`;
-for (let i = 1; i <= numCompatibilityPatches; i++) {
-  part += i + ` = { aroai_construct_special_buildings_` + i + ` = yes }`;
-  if (i % 2 == 0 || i == numCompatibilityPatches) {
-    string +=
-      "\n            " +
-      part.replace(/\n/g, " ").replaceAll("    ", " ").replace(/\s\s+/g, " ");
-    part = "";
-  } else {
-    part += " ";
-  }
-}
-string += `
-        }
-    }
-}\n`;
+const aroaiConstructSpecialBuildingsCompatibility = (
+  numCompatibilityPatches: number
+): string => {
+  const compatibilityList = Array.from(
+    { length: numCompatibilityPatches },
+    (_, i) => `${i + 1} = { aroai_construct_special_buildings_${i + 1} = yes}`
+  ).join("\n");
 
-for (let i = 1; i <= numCompatibilityPatches; i++) {
-  part += `aroai_construct_special_buildings_` + i + ` = {}`;
-  if (i % 2 == 0 || i == numCompatibilityPatches) {
-    string +=
-      "\n" +
-      part.replace(/\n/g, " ").replaceAll("    ", " ").replace(/\s\s+/g, " ");
-    part = "";
-  } else {
-    part += " ";
-  }
-}
-string += "\n";
+  const output = `aroai_construct_special_buildings_compatibility = {
+    \tevery_in_global_list = {
+    \t\tswitch = {
+    \t\t\ttrigger = this
+    \t\t\t\t${compatibilityList}
+    \t\t}
+    \t}
+    \t${Array.from(
+      { length: numCompatibilityPatches },
+      (_, i) => `aroai_construct_special_buildings_${i + 1} = {}`
+    ).join("\n\t")}
+  }`;
+
+  return output;
+};
+
+const parseBuildingsArrayForAroai = (buildingsArray: BuildingData[]) => {
+  const output = buildingsArray.map((building) => {
+    return `effect = $effect$\n key = ${building.key}\nid = ${
+      building.id
+    }\nclass = ${building.class}\ncounter = ${
+      building.counter === false ? building.id : building.counter
+    }\norder = ${building.order}\nlimit = ${building.limit}\ncrucial = ${
+      building.crucial
+    }\nworkforce = ${building.wforce === true ? "1" : "0"}\nallocate = ${
+      typeof classes[building.class] !== "undefined" && building.alloc === false
+        ? classes[building.class].allocate
+        : building.alloc
+    }\nbranching = ${building.branch === true ? "1" : "0"}\nscaling = ${
+      building.scaling === true ? "1" : "0"
+    }\n`;
+  });
+  console.log(output);
+  return output;
+};
+
+parseBuildingsArrayForAroai(buildingsArray);
 
 string += `
 aroai_perform_for_every_building_type = {`;
 for (let i = 1; i < buildingsArray.length; i++) {
   string += `
     aroai_perform_for_building_type = {
-      effect = $effect$
-      key = ${buildingsArray[i].key}
-      id = ${buildingsArray[i].id}
-      class = ${buildingsArray[i].class}
-      counter = ${
-        buildingsArray[i].counter === false
-          ? buildingsArray[i].id
-          : buildingsArray[i].counter
-      }
-      order = ${buildingsArray[i].order}
-      limit = ${buildingsArray[i].limit}
-      crucial = ${buildingsArray[i].crucial}
-      workforce = ${buildingsArray[i].wforce === true ? "1" : "0"}
-      allocate = ${
-        typeof classes[getBuildingClass(i)] !== "undefined" &&
-        buildingsArray[i].alloc === false
-          ? classes[getBuildingClass(i)].allocate
-          : buildingsArray[i].alloc
-      }
-      branching = ${buildingsArray[i].branch === true ? "1" : "0"}
-      scaling = ${buildingsArray[i].scaling === true ? "1" : "0"}
+      
     }`;
 }
 string += `
@@ -330,4 +332,6 @@ for (let i = 1; i <= numCompatibilityPatches; i++) {
     ` = { always = no $trigger$ = 0 }`;
 }
 
-console.log(string.substring(1)); // Remove line break at the start
+await createAndWriteOutput().then(() => {
+  console.log("🎉 Done! ");
+});

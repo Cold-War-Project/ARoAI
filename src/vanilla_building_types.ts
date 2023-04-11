@@ -215,14 +215,13 @@ const parseBuildingsArrayForAroai = (buildingsArray: BuildingData[]) => {
   return output;
 };
 
-parseBuildingsArrayForAroai(buildingsArray);
-
 string += `
 aroai_perform_for_every_building_type = {`;
 for (let i = 1; i < buildingsArray.length; i++) {
+  //fixme This IS INCORRECT, LEFT OFF HERE
   string += `
     aroai_perform_for_building_type = {
-      
+      ${parseBuildingsArrayForAroai(buildingsArray)}
     }`;
 }
 string += `

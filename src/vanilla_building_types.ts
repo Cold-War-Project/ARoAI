@@ -1,10 +1,14 @@
-import fs from "fs";
+import { readTextFile, writeTextFile, BaseDirectory } from "@tauri-apps/api/fs";
+import { resourceDir } from "@tauri-apps/api/path";
+import { open } from "@tauri-apps/api/shell";
+import { invoke } from "@tauri-apps/api/tauri";
+import { index } from "d3";
 
-let string = "",
-  part = "",
-  free = "",
-  dc = 5 /* Default crucial */,
-  numCompatibilityPatches = 200;
+let string = "";
+let part = "";
+let free = "";
+const dc = 5; /* Default crucial */
+const numCompatibilityPatches = 200;
 
 /*
 
@@ -47,11 +51,11 @@ Order of buildings
 
 */
 
-interface BuildingData {
+export interface BuildingData {
   key: string;
   id: number;
   class: number;
-  counter: boolean;
+  counter: number | boolean;
   order: number;
   limit: number;
   crucial: number;
@@ -61,33 +65,72 @@ interface BuildingData {
   scaling: boolean;
 }
 
-const data = fs.readFileSync("buildings.csv", "utf8");
+const parseBoolean = (lineData: string) => {
+  if (!lineData) return false;
+  let lineUpper = lineData.toUpperCase();
+  if (lineUpper == "TRUE") {
+    return true;
+  }
+  if (lineUpper == "FALSE") {
+    return false;
+  }
+  console.error("Invalid boolean value: " + lineData);
+  return false;
+};
+
+const parseBooleanOrNumber = (lineData: string) => {
+  if (!lineData) return false;
+  let number = parseInt(lineData);
+  if (!isNaN(number)) {
+    return number;
+  }
+  let lineUpper = lineData.toUpperCase();
+  if (lineUpper == "TRUE") {
+    return true;
+  }
+  if (lineUpper == "FALSE") {
+    return false;
+  }
+};
+
+const resourceDirPath = await resourceDir();
+const buildingFile = `${resourceDirPath}buildings.csv`;
+const data: string = await readTextFile(buildingFile, {
+  dir: BaseDirectory.App,
+});
 
 const constructBuildingsObjectArray = (data: string): BuildingData[] => {
   const outArr: BuildingData[] = [];
-  const lines: string[] = data.split("\r");
-  lines.forEach((line, index) => {
-    if (index === 0) return;
+  const lines = data.split("\r");
+  lines.forEach((line) => {
+    if (line === lines[0]) return;
     const lineData = line.split(",");
     const buildingData: BuildingData = {
       key: lineData[0],
       id: parseInt(lineData[1]),
       class: parseInt(lineData[2]),
-      counter: lineData[3] === "true",
+      counter:
+        parseBooleanOrNumber(lineData[8]) == false
+          ? false
+          : parseInt(lineData[3]),
       order: parseInt(lineData[4]),
       limit: parseInt(lineData[5]),
-      crucial: parseInt(lineData[6]),
-      wforce: lineData[7] === "true",
-      alloc: lineData[8] === "true" ? true : parseInt(lineData[8]),
-      branch: lineData[9] === "true",
-      scaling: lineData[10] === "true",
+      crucial: lineData[6] === "dc" ? dc : parseInt(lineData[6]),
+      wforce: parseBoolean(lineData[7]),
+      alloc:
+        parseBooleanOrNumber(lineData[8]) == false
+          ? false
+          : parseInt(lineData[8]),
+      branch: parseBoolean(lineData[9]),
+      scaling: parseBoolean(lineData[10]),
     };
     outArr.push(buildingData);
   });
   return outArr;
 };
 
-const buildings = constructBuildingsObjectArray(data);
+export const buildingsArray: BuildingData[] =
+  constructBuildingsObjectArray(data);
 
 interface BuildingClass {
   group: string;
@@ -95,9 +138,7 @@ interface BuildingClass {
   allocate: number;
 }
 
-let classes: BuildingClass[] = [
-  //  [0]                   [1]   [2]
-  //  group                 id    allocate
+const classes: BuildingClass[] = [
   { group: "government", id: 1, allocate: 1 },
   { group: "infrastructure", id: 2, allocate: 1 },
   { group: "military", id: 3, allocate: 2 },
@@ -105,6 +146,10 @@ let classes: BuildingClass[] = [
   { group: "agriculture", id: 5, allocate: 2 },
   { group: "industry", id: 6, allocate: 1 },
 ];
+
+const getBuildingClass = (index: number) => {
+  return buildingsArray[index].class;
+};
 
 /*
     Place result code below into an end of the aroai_static_data_effects.txt file
@@ -121,7 +166,7 @@ aroai_construct_special_buildings_compatibility = {
         variable = aroai_compatibility_patches
         switch = {
             trigger = this`;
-for (var i = 1; i <= numCompatibilityPatches; i++) {
+for (let i = 1; i <= numCompatibilityPatches; i++) {
   part += i + ` = { aroai_construct_special_buildings_` + i + ` = yes }`;
   if (i % 2 == 0 || i == numCompatibilityPatches) {
     string +=
@@ -137,7 +182,7 @@ string += `
     }
 }\n`;
 
-for (var i = 1; i <= numCompatibilityPatches; i++) {
+for (let i = 1; i <= numCompatibilityPatches; i++) {
   part += `aroai_construct_special_buildings_` + i + ` = {}`;
   if (i % 2 == 0 || i == numCompatibilityPatches) {
     string +=
@@ -152,39 +197,35 @@ string += "\n";
 
 string += `
 aroai_perform_for_every_building_type = {`;
-for (var i = 1; i < buildings.length; i++) {
-  string +=
-    `
-    aroai_perform_for_building_type = {` +
-    ` effect = $effect$` +
-    ` key = ` +
-    buildings[i].key +
-    ` id = ` +
-    buildings[i].id;
-  string +=
-    `
-    class = ` +
-    buildings[i].class +
-    ` counter = ` +
-    (buildings[i].counter === false ? buildings[i].id : buildings[i].counter) +
-    ` order = ` +
-    buildings[i].order +
-    ` limit = ` +
-    buildings[i].limit +
-    ` crucial = ` +
-    buildings[i].crucial +
-    ` workforce = ` +
-    (buildings[i].wforce === true ? "1" : "0") +
-    ` allocate = ` +
-    (buildings[i].alloc === false
-      ? classes[buildings[i].class].allocate
-      : buildings[i].alloc) +
-    ` branching = ` +
-    (buildings[i].branch === true ? "1" : "0") +
-    ` scaling = ` +
-    (buildings[i].scaling === true ? "1" : "0") +
-    ` }`;
+for (let i = 1; i < buildingsArray.length; i++) {
+  string += `
+    aroai_perform_for_building_type = {
+      effect = $effect$
+      key = ${buildingsArray[i].key}
+      id = ${buildingsArray[i].id}
+      class = ${buildingsArray[i].class}
+      counter = ${
+        buildingsArray[i].counter === false
+          ? buildingsArray[i].id
+          : buildingsArray[i].counter
+      }
+      order = ${buildingsArray[i].order}
+      limit = ${buildingsArray[i].limit}
+      crucial = ${buildingsArray[i].crucial}
+      workforce = ${buildingsArray[i].wforce === true ? "1" : "0"}
+      allocate = ${
+        typeof classes[getBuildingClass(i)] !== "undefined" &&
+        buildingsArray[i].alloc === false
+          ? classes[getBuildingClass(i)].allocate
+          : buildingsArray[i].alloc
+      }
+      branching = ${buildingsArray[i].branch === true ? "1" : "0"}
+      scaling = ${buildingsArray[i].scaling === true ? "1" : "0"}
+    }`;
 }
+string += `
+}`;
+
 string += `
     if = {
         limit = {
@@ -200,7 +241,7 @@ aroai_perform_for_every_building_type_compatibility = {
         variable = aroai_compatibility_patches
         switch = {
             trigger = this`;
-for (var i = 1; i <= numCompatibilityPatches; i++) {
+for (let i = 1; i <= numCompatibilityPatches; i++) {
   string +=
     `
             ` +
@@ -214,7 +255,7 @@ string += `
     }
 }\n`;
 
-for (var i = 1; i <= numCompatibilityPatches; i++) {
+for (let i = 1; i <= numCompatibilityPatches; i++) {
   string +=
     `\naroai_perform_for_every_building_type_` +
     i +
@@ -233,52 +274,45 @@ string += `
 
 string += `
 aroai_is_true_for_any_building_type = {
-    OR = {`;
-for (var i = 1; i < buildings.length; i++) {
-  string +=
-    `
-        aroai_is_true_for_building_type = {` +
-    ` trigger = $trigger$` +
-    ` key = ` +
-    buildings[i].key +
-    ` id = ` +
-    buildings[i].id;
-  string +=
-    `
-        class = ` +
-    buildings[i].class +
-    ` counter = ` +
-    (buildings[i].counter === false ? buildings[i].id : buildings[i].class) +
-    ` order = ` +
-    buildings[i].order +
-    ` limit = ` +
-    buildings[i].limit +
-    ` crucial = ` +
-    buildings[i].crucial +
-    ` workforce = ` +
-    (buildings[i].wforce === true ? "1" : "0") +
-    ` allocate = ` +
-    (buildings[i].alloc === false
-      ? classes[buildings[i].class].allocate
-      : buildings[i].alloc) +
-    ` branching = ` +
-    (buildings[i].branch === true ? "1" : "0") +
-    ` scaling = ` +
-    (buildings[i].scaling === true ? "1" : "0") +
-    ` }`;
+  OR = {`;
+for (let i = 1; i < buildingsArray.length; i++) {
+  string += `
+    aroai_is_true_for_building_type = {
+      trigger = $trigger$
+      key = ${buildingsArray[i].key}
+      id = ${buildingsArray[i].id}
+      class = ${buildingsArray[i].class}
+      counter = ${
+        buildingsArray[i].counter === false
+          ? buildingsArray[i].id
+          : buildingsArray[i].class
+      }
+      order = ${buildingsArray[i].order}
+      limit = ${buildingsArray[i].limit}
+      crucial = ${buildingsArray[i].crucial}
+      workforce = ${buildingsArray[i].wforce === true ? "1" : "0"}
+      allocate = ${
+        typeof classes[getBuildingClass(i)] !== "undefined" &&
+        buildingsArray[i].alloc === false
+          ? classes[getBuildingClass(i)].allocate
+          : buildingsArray[i].alloc
+      }
+      branching = ${buildingsArray[i].branch === true ? "1" : "0"}
+      scaling = ${buildingsArray[i].scaling === true ? "1" : "0"}
+    }`;
 }
 string += `
-        AND = {
-            aroai_is_using_compatibility_patches = yes
-            aroai_is_true_for_any_building_type_compatibility = { trigger = $trigger$ }
-        }
+    AND = {
+      aroai_is_using_compatibility_patches = yes
+      aroai_is_true_for_any_building_type_compatibility = { trigger = $trigger$ }
     }
+  }
 }\n`;
 
 string += `
 aroai_is_true_for_any_building_type_compatibility = {
     OR = {`;
-for (var i = 1; i <= numCompatibilityPatches; i++) {
+for (let i = 1; i <= numCompatibilityPatches; i++) {
   string +=
     `
         aroai_is_true_for_any_building_type_` +
@@ -289,7 +323,7 @@ string += `
     }
 }\n`;
 
-for (var i = 1; i <= numCompatibilityPatches; i++) {
+for (let i = 1; i <= numCompatibilityPatches; i++) {
   string +=
     `\naroai_is_true_for_any_building_type_` +
     i +
